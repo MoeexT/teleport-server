@@ -1,5 +1,16 @@
 {
     "editor.rulers": [
     99
+    ],
+    "cSpell.words": [
+        "chrono",
+        "deku",
+        "dylib",
+        "llen",
+        "lpop",
+        "lrange",
+        "repr",
+        "RPUSH",
+        "sqlx"
     ]
 }

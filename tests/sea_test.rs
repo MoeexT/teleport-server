@@ -1,21 +1,24 @@
 use std::collections::HashSet;
 
-
-use teleport_server::{db::{mysql_store::{connect, find_user, add_user}}, ClipType, Ttl};
-
-
-
-#[tokio::test]
-async fn select() {
-    let db = &connect().await;
-    dbg!(find_user(db, "root_app_key").await);
-}
+use teleport_server::{
+    clip::{ClipType, Ttl},
+    db::{mysql_store::Store, User},
+};
 
 #[tokio::test]
 #[ignore = "Not always insert value to db"]
 async fn insert() {
-    let db = &connect().await;
+    let mut store = Store::new("");
+    store.connect().await;
     let mut set = HashSet::new();
     set.insert(ClipType::All);
-    add_user(db, set, Ttl::Permanent).await.unwrap();
+    let user = User::new("root", "root_secret", "administrator", Ttl::Transient, set);
+    store.add_user(user).await.unwrap();
+}
+
+#[tokio::test]
+async fn select() {
+    let mut store = Store::new("");
+    store.connect().await;
+    dbg!(store.find_user("root_app_key").await);
 }

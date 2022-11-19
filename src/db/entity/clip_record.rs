@@ -9,6 +9,7 @@ pub struct Model {
     pub id: u32,
     pub user_id: u32,
     pub data_type: u8,
+    pub meta: Option<Vec<u8>>,
     pub content: Vec<u8>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
