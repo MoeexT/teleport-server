@@ -1,152 +1,148 @@
-use log::error;
-
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use converter::{BytesConverter, NumberConverter};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+pub mod clip;
+pub mod converter;
 pub mod db;
-pub mod thread_pool;
 pub mod util;
 
-pub trait EnumToNumber {
-    fn convert_to_number<T: From<Self>>(&self) -> T
-    where
-        Self: Sized;
-}
+pub type Offsets = [u16; 4];
 
-const LOW_SIZE: u8 = 8;
-
-pub struct UserAuthority {
-    pub ttl: Ttl,
-    pub data_type: ClipType,
-}
-
-impl UserAuthority {
-    pub fn from(pv: u16) -> Self {
-        let ttl = (pv & 0b1111_1111) as u8;
-        let data_type = ((pv & 0b1111_1111_0000_0000) >> LOW_SIZE) as u8;
-        Self {
-            ttl: Ttl::try_from_primitive(ttl).unwrap_or(Ttl::Transient),
-            data_type: ClipType::try_from_primitive(data_type)
-                .unwrap_or(ClipType::Stream),
-        }
-    }
-
-    pub fn to_number(&self) -> u16 {
-        ((self.data_type.convert_to_number::<u8>() as u16) << LOW_SIZE)
-            + (self.ttl.convert_to_number::<u8>()) as u16
-    }
-}
-
-
-
-
-
-// pub enum SimpleAuthority {
-//     Peak = 0b1111_1111_1111_0111, // all authority
-//     High = 0b111_0110,            //
-//     Medium = 0b11_0100,           //
-//     Low = 1,                      //
-// }
-
-// 3bit
+// u4
+#[derive(Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive, EnumIter, DeriveActiveEnum)]
-#[sea_orm(rs_type = "u8", db_type = "SmallInteger")]
-pub enum Ttl {
-    Transient = 0b000, // delete after reading
-    HalfHour = 0b001,  // 半小时
-    OneHour = 0b010,   // 一小时
-    HalfDay = 0b011,   // 12小时
-    OneDay = 0b100,    // 一天
-    OneWeek = 0b101,   // 一周
-    OneMonth = 0b110,  // 一个月
-    Permanent = 0b111, // 永久
+pub enum MessageType {
+    Control = 0,
+    Clip = 1,
 }
 
-impl EnumToNumber for Ttl {
-    fn convert_to_number<T: From<Self>>(&self) -> T
+impl NumberConverter for MessageType {
+    fn to_number<T: From<Self>>(&self) -> T
     where
         Self: Sized,
     {
         match self {
-            Ttl::Transient => Ttl::Transient.into(),
-            Ttl::HalfHour => Ttl::HalfHour.into(),
-            Ttl::OneHour => Ttl::OneHour.into(),
-            Ttl::HalfDay => Ttl::HalfDay.into(),
-            Ttl::OneDay => Ttl::OneDay.into(),
-            Ttl::OneWeek => Ttl::OneWeek.into(),
-            Ttl::OneMonth => Ttl::OneMonth.into(),
-            Ttl::Permanent => Ttl::Permanent.into(),
+            MessageType::Control => MessageType::Control.into(),
+            MessageType::Clip => MessageType::Clip.into(),
         }
     }
 }
-// 3bit
+
+// u4
+#[derive(Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "u8", db_type = "SmallInteger")]
-pub enum ClipType {
-    Text = 0b001,      // rich text
-    Image = 0b010,     // image
-    Stream = 0b100,    // byte stream, used for large file
-    All = 0b1111_1111, // all data types
+pub enum EncryptType {
+    None = 0,
+    AES256 = 1,
+    RSA = 2,
+    DSA = 3,
 }
 
-impl EnumToNumber for ClipType {
-    fn convert_to_number<T: From<Self>>(&self) -> T {
+impl NumberConverter for EncryptType {
+    fn to_number<T: From<Self>>(&self) -> T
+    where
+        Self: Sized,
+    {
         match self {
-            ClipType::Text => ClipType::Text.into(),
-            ClipType::Image => ClipType::Image.into(),
-            ClipType::Stream => ClipType::Stream.into(),
-            ClipType::All => ClipType::All.into(),
+            EncryptType::None => EncryptType::None.into(),
+            EncryptType::AES256 => EncryptType::AES256.into(),
+            EncryptType::RSA => EncryptType::RSA.into(),
+            EncryptType::DSA => EncryptType::DSA.into(),
         }
     }
 }
 
-
-#[repr(u16)]
-#[derive(Debug, PartialEq, Eq, Hash, EnumIter, DeriveActiveEnum)]
-#[sea_orm(rs_type = "u16", db_type = "SmallInteger")]
-pub enum ClipLimit {
-    Ten = 10,
-    Fifty = 50,
-    Hundred = 100,
-    ThreeHundred = 300,
-    FiveHundred = 500,
-    Thousand = 1000,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClipItem {
-    // pub key: &'a str,
-    pub data_type: ClipType,
-    #[serde(with = "serde_bytes")]
+pub struct Message {
+    pub offsets: Offsets,
+    pub uid: String,
+    pub token: String,
+    pub message_type: MessageType,
+    pub encryption: EncryptType,
     pub content: Vec<u8>,
-    created_at: DateTime<Utc>,
 }
 
-impl ClipItem {
-    fn new(data_type: ClipType, content: Vec<u8>) -> Self {
-        ClipItem {
-            data_type,
+impl Message {
+    pub fn new(
+        uid: String,
+        token: String,
+        m_type: MessageType,
+        encrypt: EncryptType,
+        content: Vec<u8>,
+    ) -> Self {
+        let mut offsets: Offsets = [0; 4];
+
+        offsets[0] = (8 + uid.as_bytes().len()) as u16;
+        offsets[1] = offsets[0] + token.as_bytes().len() as u16;
+        offsets[2] = offsets[1] + 1 + content.len() as u16;
+
+        Self {
+            offsets,
+            uid,
+            token,
+            message_type: m_type,
+            encryption: encrypt,
             content,
-            created_at: Utc::now(),
-        }
-    }
-
-    fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
-
-    fn from_str(s: &str) -> Option<Self> {
-        match serde_json::from_str::<Self>(s) {
-            Ok(r) => Some(r),
-            Err(err) => {
-                error!("Deserialize RedisRecord failed: {}", err);
-                None
-            }
         }
     }
 }
 
+impl BytesConverter for Message {
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(128);
+        bytes.extend([0u8; 8]);
+
+        let v_uid = self.uid.as_bytes();
+        bytes.extend(v_uid);
+        let len = bytes.len() as u16;
+        bytes[0] = (len >> 8) as u8;
+        bytes[1] = (len & 0xff) as u8;
+
+        let v_token = self.token.as_bytes();
+        bytes.extend(v_token);
+        let len = bytes.len() as u16;
+        bytes[2] = (len >> 8) as u8;
+        bytes[3] = (len & 0xff) as u8;
+
+        let v_mt = self.message_type.to_number::<u8>();
+        let v_et = self.encryption.to_number::<u8>();
+        let m_e = (v_mt << 4) + v_et & 0xf;
+        bytes.extend([m_e]);
+        // bytes[len as usize] = ;
+        // TODO check
+        bytes.extend(&self.content);
+        let len = bytes.len() as u16;
+        bytes[4] = (len >> 8) as u8;
+        bytes[5] = (len & 0xff) as u8;
+
+        bytes
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Self {
+        let mut offsets: Offsets = [0; 4];
+        dbg!(&bytes[..8]);
+        for i in 0..offsets.len() {
+            // TODO 'attempt to shift left with overflow'
+            // format!("{:b}", bytes [i]) = "0"
+            dbg!(format!("{:b}, {:b}", bytes[i], bytes[i+1]));
+            offsets[i] = u16::from(bytes[i<<1]) << 8 | u16::from(bytes[(i<<1) + 1]);
+        }
+        dbg!(bytes.len());
+        dbg!(offsets);
+        let uid = String::from_utf8_lossy(&bytes[4..offsets[0] as usize]).to_string();
+        let token =
+            String::from_utf8_lossy(&bytes[offsets[0] as usize..offsets[1] as usize]).to_string();
+
+        let m_e = bytes[offsets[1] as usize];
+        let message_type = MessageType::try_from(m_e >> 4).unwrap();
+        let encryption = EncryptType::try_from(m_e & 0xf).unwrap();
+
+        Self {
+            offsets,
+            uid,
+            token,
+            message_type,
+            encryption,
+            content: bytes[offsets[1] as usize + 1..].to_vec(),
+        }
+    }
+}

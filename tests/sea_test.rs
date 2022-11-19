@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 
-use teleport_server::{db::{mysql_store::{connect, find_user, add_user}}, ClipType, Ttl};
+use teleport_server::{db::{mysql_store::{connect, find_user, add_user}}, clip::{ClipType, Ttl}};
 
 
 

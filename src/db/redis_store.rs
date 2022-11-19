@@ -3,8 +3,6 @@ use core::num::NonZeroUsize;
 
 use redis::{Client, Commands};
 
-use crate::{ClipType, ClipItem};
-
 use super::{entity::user::Model as UserModel};
 
 pub struct SizedList<'a> {
@@ -52,24 +50,20 @@ fn range_push(con: &mut Client, key: &str, data: Vec<u8>, capacity: usize) -> Op
     None
 }
 
-pub fn set(con: &mut Client, usr: &UserModel, data_type: ClipType, content: &[u8]) {
-    let redis_record = ClipItem::new(data_type, content.to_vec());
-
+pub fn set(con: &mut Client, usr: &UserModel, data: String) {
     range_push(
         con,
         &usr.user_key,
-        redis_record.to_string().into_bytes(),
+        data.into_bytes(),
         usr.capacity as usize,
     )
     .unwrap();
 }
 
 /// get all values of user
-pub fn get(con: &mut Client, usr: &UserModel) -> Vec<ClipItem> {
+pub fn get(con: &mut Client, usr: &UserModel) -> Vec<String> {
     let records: Vec<Vec<u8>> = con.lrange(&usr.user_key, 0, usr.capacity as isize).unwrap();
     records.into_iter()
-        .map(|bytes| ClipItem::from_str(str::from_utf8(&bytes).unwrap()))
-        .filter(|rcd| rcd.is_some())
-        .map(|rcd| rcd.unwrap())
+        .map(|bytes| str::from_utf8(&bytes).unwrap().to_string())
         .collect()
 }

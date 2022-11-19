@@ -10,7 +10,7 @@ use super::entity::{
     clip_record::{self, Entity as ClipRecordEntity, Model as ClipRecordModel},
     user::{self, Entity as UserEntity, Model as UserModel},
 };
-use crate::{util::numbers::only_one_one, ClipType, EnumToNumber, Ttl};
+use crate::{util::numbers::only_one_one, converter::NumberConverter, clip::{ClipType, Ttl}};
 
 /// connect to mysql
 pub async fn connect() -> DatabaseConnection {
@@ -36,16 +36,16 @@ pub async fn add_user(
     use sea_orm::ActiveValue::Set;
 
     let data_type = if data_types.contains(&ClipType::All) {
-        ClipType::All.convert_to_number::<u8>()
+        ClipType::All.to_number::<u8>()
     } else {
         data_types
             .into_iter()
-            .map(|tp| tp.convert_to_number::<u8>())
+            .map(|tp| tp.to_number::<u8>())
             .sum()
     };
 
     let new_user = user::ActiveModel {
-        ttl: Set(ttl.convert_to_number::<u8>()),
+        ttl: Set(ttl.to_number::<u8>()),
         data_type: Set(data_type),
         user_key: Set("root_app_key".to_owned()),
         user_secret: Set("root_app_secret".to_owned()),

@@ -1,4 +1,4 @@
-use teleport_server::{util::numbers::only_one_one, ClipType};
+use teleport_server::{util::numbers::only_one_one, clip::ClipType};
 
 
 #[test]
@@ -24,4 +24,18 @@ fn check_ont() {
 #[test]
 fn print_enum() {
     println!("{:?}", ClipType::Text)
+}
+
+
+#[test]
+fn converter_i64() {
+    dbg!((-65 as i64).to_be_bytes());
+    dbg!((65 as i64).to_be_bytes());
+}
+
+
+#[test]
+fn endian() {
+    let x = 0x0102u16;
+    println!("{}", x as u8)
 }
