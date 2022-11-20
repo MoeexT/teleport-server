@@ -2,6 +2,5 @@
 
 mod redis_test;
 mod number_test;
-mod sea_test;
-mod synthesis;
 mod lib_test;
+mod deku_test;

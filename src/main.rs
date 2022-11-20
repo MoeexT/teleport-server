@@ -2,6 +2,8 @@
 // use log::{info, error};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
 
+pub mod db;
+
 #[tokio::main]
 async fn main() {
     env_logger::init();

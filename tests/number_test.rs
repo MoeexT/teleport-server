@@ -39,3 +39,11 @@ fn endian() {
     let x = 0x0102u16;
     println!("{}", x as u8)
 }
+
+#[test]
+fn string_convert() {
+    // dbg!("abc".as_bytes().to_vec().to_string());
+    let s = String::from("Hello哈哈😀");
+    dbg!(s.chars().count());
+    dbg!(s.as_bytes().len());
+}

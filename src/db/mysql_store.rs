@@ -6,16 +6,17 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder,
 };
 
+use teleport_server::{
+    clip::{ClipMessage, ClipType, Ttl},
+    util::numbers::only_one_one,
+};
+
 use super::{
     entity::{
         clip_record::{self, Entity as ClipRecordEntity, Model as ClipRecordModel},
         user::{self, Entity as UserEntity, Model as UserModel},
     },
     User,
-};
-use crate::{
-    clip::{ClipMessage, ClipType, Ttl},
-    util::numbers::only_one_one,
 };
 
 pub struct Store {
